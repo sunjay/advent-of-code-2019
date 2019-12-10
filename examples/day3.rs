@@ -13,7 +13,7 @@ fn main() -> Result<(), AnyError> {
     let input_reader = BufReader::new(input_file);
 
     let mut grid = Grid::default();
-    let mut min_intersection = 0;
+    let mut min_intersection = i64::max_value();
     for (wire_id, wire) in input_reader.lines().enumerate() {
         let mut pos = central_port();
         for instr in wire?.split(',') {
@@ -21,14 +21,12 @@ fn main() -> Result<(), AnyError> {
             let steps: usize = instr[1..].parse()?;
             for _ in 0..steps {
                 pos = pos + dir;
-                if let Some(_) = grid.place(pos, wire_id) {
+                if grid.place(pos, wire_id).is_some() {
                     min_intersection = min_intersection.min(pos.x.abs() + pos.y.abs());
                 }
             }
         }
     }
-
-    println!("{}", grid);
 
     println!("Closest intersection distance: {}", min_intersection);
 
