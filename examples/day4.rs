@@ -14,7 +14,8 @@ fn is_valid_password(password: u64) -> bool {
     // Digits can range from 0 to 9, so 10 is always greater
     let mut last_digit = 10;
     let mut digits = 0;
-    let mut found_double = false;
+    let mut matching_count = None;
+    let mut found_any_pair = false;
     while num != 0 {
         let digit = num % base;
         num /= base;
@@ -23,11 +24,40 @@ fn is_valid_password(password: u64) -> bool {
             return false;
 
         } else if digit == last_digit {
-            found_double = true;
+            match matching_count {
+                Some((matching_digit, count)) if matching_digit != digit => {
+                    if count == 2 {
+                        found_any_pair = true;
+                    }
+                    // Last digit + current digit = 2 digits
+                    matching_count = Some((digit, 2));
+                },
+                Some((matching_digit, count)) => {
+                    let count = count + 1;
+                    // Groups greater than 2 don't count
+                    if count > 2 {
+                        matching_count = None;
+
+                    } else {
+                        matching_count = Some((matching_digit, count));
+                    }
+                },
+                None => {
+                    // Last digit + current digit = 2 digits
+                    matching_count = Some((digit, 2));
+                },
+            }
         }
+
         last_digit = digit;
         digits += 1;
     }
 
-    found_double && digits == 6
+    if !found_any_pair {
+        if let Some((_, 2)) = matching_count {
+            found_any_pair = true;
+        }
+    }
+
+    found_any_pair && digits == 6
 }
