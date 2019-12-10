@@ -13,16 +13,19 @@ fn main() -> Result<(), AnyError> {
     let input_reader = BufReader::new(input_file);
 
     let mut grid = Grid::default();
-    let mut min_intersection = i64::max_value();
+    let mut min_intersection = usize::max_value();
     for (wire_id, wire) in input_reader.lines().enumerate() {
         let mut pos = central_port();
+        let mut total_distance = 0;
         for instr in wire?.split(',') {
             let dir: Direction = instr[0..1].parse()?;
             let steps: usize = instr[1..].parse()?;
             for _ in 0..steps {
                 pos = pos + dir;
-                if grid.place(pos, wire_id).is_some() {
-                    min_intersection = min_intersection.min(pos.x.abs() + pos.y.abs());
+                total_distance += 1;
+                let wire = Wire {id: wire_id, signal_delay: total_distance};
+                if let Some(other_wire) = grid.place(pos, wire) {
+                    min_intersection = min_intersection.min(total_distance + other_wire.signal_delay);
                 }
             }
         }
@@ -93,24 +96,33 @@ impl Add<Direction> for GridPos {
     }
 }
 
+#[derive(Debug)]
+pub struct Wire {
+    /// The ID of the wire at the given grid location
+    pub id: usize,
+    /// The amount of steps from the central port
+    pub signal_delay: usize,
+}
+
 #[derive(Debug, Default)]
 pub struct Grid {
-    /// The values in the grid with a piece of wire with the given wire ID
-    tiles: HashMap<GridPos, usize>,
+    /// The positions of the grid that actually have a piece of wire
+    tiles: HashMap<GridPos, Wire>,
 }
 
 impl Grid {
     /// Places a wire with the given ID
     ///
     /// Returns Some(other wire ID) if a wire with a different ID exists at this location already
-    pub fn place(&mut self, pos: GridPos, wire_id: usize) -> Option<usize> {
-        match self.tiles.get(&pos) {
-            Some(&wire2_id) if wire_id == wire2_id => None,
-            Some(&wire2_id) => Some(wire2_id),
-            None => {
-                self.tiles.insert(pos, wire_id);
-                None
-            },
+    pub fn place(&mut self, pos: GridPos, wire: Wire) -> Option<Wire> {
+        let wire_id = wire.id;
+        match self.tiles.insert(pos, wire) {
+            // self-intersection
+            Some(wire2) if wire_id == wire2.id => None,
+            // intersection with some other wire
+            Some(wire2) => Some(wire2),
+            // No intersection
+            None => None,
         }
     }
 }
@@ -130,7 +142,7 @@ impl fmt::Display for Grid {
             for x in x_range.clone() {
                 let pos = GridPos {x, y};
                 match self.tiles.get(&pos) {
-                    Some(wire_id) => write!(f, "{}", wire_id)?,
+                    Some(wire) => write!(f, "{}", wire.id)?,
                     None => write!(f, ".")?,
                 }
             }
