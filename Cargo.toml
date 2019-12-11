@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
+text_io = "0.1"
