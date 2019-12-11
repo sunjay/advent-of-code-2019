@@ -25,12 +25,53 @@ pub fn evaluate(mut memory: Vec<i64>) {
         match opcode {
             1 => add(&mut memory, param_modes, &mut pos),
             2 => multiply(&mut memory, param_modes, &mut pos),
+
             3 => input(&mut memory, param_modes, &mut pos),
             4 => output(&mut memory, param_modes, &mut pos),
+
+            5 => jump_if_true(&mut memory, param_modes, &mut pos),
+            6 => jump_if_false(&mut memory, param_modes, &mut pos),
+
+            7 => less_than(&mut memory, param_modes, &mut pos),
+            8 => equals(&mut memory, param_modes, &mut pos),
+
             99 => break,
+
             op => panic!("Encountered invalid opcode '{}' at position {}", op, pos),
         }
     }
+}
+
+fn add(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    bin_op(mem, param_modes, pos, |x, y| x + y);
+}
+
+fn multiply(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    bin_op(mem, param_modes, pos, |x, y| x * y);
+}
+
+fn less_than(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    bin_op(mem, param_modes, pos, |x, y| (x < y) as i64);
+}
+
+fn equals(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    bin_op(mem, param_modes, pos, |x, y| (x == y) as i64);
+}
+
+fn input(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    unary_op_write(mem, param_modes, pos, |m| *m = read!());
+}
+
+fn output(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    unary_op_read(mem, param_modes, pos, |m| println!("{}", m));
+}
+
+fn jump_if_true(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    unary_op_jump(mem, param_modes, pos, |x| x != 0);
+}
+
+fn jump_if_false(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
+    unary_op_jump(mem, param_modes, pos, |x| x == 0);
 }
 
 /// Returns the value of the given parameter, either by returning its immediate value or by
@@ -76,14 +117,6 @@ fn bin_op(
     mem[target] = op(left, right);
 }
 
-fn add(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
-    bin_op(mem, param_modes, pos, |x, y| x + y);
-}
-
-fn multiply(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
-    bin_op(mem, param_modes, pos, |x, y| x * y);
-}
-
 fn unary_op_read(
     mem: &mut Vec<i64>,
     param_modes: i64,
@@ -114,10 +147,23 @@ fn unary_op_write(
     op(&mut mem[target]);
 }
 
-fn input(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
-    unary_op_write(mem, param_modes, pos, |m| *m = read!());
-}
+fn unary_op_jump(
+    mem: &mut Vec<i64>,
+    param_modes: i64,
+    pos: &mut usize,
+    should_jump: impl FnOnce(i64) -> bool,
+) {
+    let cond_addr = *pos + 1;
+    let jump_addr_addr = *pos + 2;
+    *pos += 3;
 
-fn output(mem: &mut Vec<i64>, param_modes: i64, pos: &mut usize) {
-    unary_op_read(mem, param_modes, pos, |m| println!("{}", m));
+    let jump_addr_mode = param_modes / 10;
+    let cond_mode = param_modes / 1 - jump_addr_mode * 10;
+
+    let cond = param_value(mem, cond_mode, cond_addr);
+    let jump_addr = param_value(mem, jump_addr_mode, jump_addr_addr);
+
+    if should_jump(cond) {
+        *pos = jump_addr as usize;
+    }
 }
